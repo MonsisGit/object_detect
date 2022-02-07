@@ -250,7 +250,7 @@ class Sort(object):
           self.trackers.pop(i)
     if(len(ret)>0):
       return np.concatenate(ret)
-    return np.empty((0,5))
+    return np.empty((0,6))
 
 def parse_args():
     """Parse input arguments."""

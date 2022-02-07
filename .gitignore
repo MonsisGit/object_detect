@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# deeplearning models
+*.pot
+*.pth
+
 # C extensions
 *.so
 

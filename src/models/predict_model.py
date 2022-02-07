@@ -2,19 +2,27 @@ import cv2 as cv
 from PIL import Image
 import torch
 import numpy as np
+from matplotlib import pyplot as plt
 
 from sort import Sort
 
-
-yolo_v5n = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
+cmap = plt.get_cmap('tab20b')
+colors = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
 font = cv.FONT_HERSHEY_SIMPLEX
+
+yolo_v5n = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+
 mot_tracker = Sort()
+
+points=[]
 
 cap = cv.VideoCapture(0)
 if not cap.isOpened():
     print("Cannot open camera")
     exit()
 while True:
+    if len(points)>50:
+        points=[]
     # Capture frame-by-frame
     ret, frame = cap.read()
 
@@ -28,20 +36,26 @@ while True:
         dets = np.empty((0, 5))
         trackers = mot_tracker.update(dets)
     else:
-        for idx in range(results.pandas().xyxy[0].shape[0]):
 
-            res = results.pandas().xyxy[0].iloc[idx]
-            x = int(res["xmin"])
-            y = int(res["ymin"])
-            w = int(res["xmax"]-res["xmin"])
-            h = int(res["ymax"]-res["ymin"])
-            #dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
+        tracked_objects = mot_tracker.update(results.pandas().xyxy[0].values[:,0:5])
 
-            tracked_objects = mot_tracker.update(np.array([x,y,w+x,h+y,res["confidence"]]))
+        classes=results.pandas().xyxy[0].values[:,-1]
+        for idx, track_out in enumerate(tracked_objects):
+            x1, y1, x2, y2, obj_id = track_out
+            x1 = int(x1)
+            x2 = int(x2)
+            y1 = int(y1)
+            y2 = int(y2)
+            if classes[idx] == "person":
+                points.append([x1+(x2-x1)/2,y1+(y2-y1)/2]) 
+                cv.polylines(frame, np.int32([points]), 1, (255,255,255))
 
-            frame = cv.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
-            cv.putText(frame,res["name"] + " ("+str(res["confidence"]*100)[0:4] + "%)",(x+w+10,y+h),0,0.5,(0,255,0))
-
+            frame = cv.rectangle(frame,(x1,y1),(x1+x2,y1+y2),(0,255,0),2)
+            color = colors[int(obj_id) % len(colors)]
+            color = [i * 255 for i in color]
+            cv.putText(frame,classes[idx] ,(x1+3,y1+25),0,0.5,(0,255,0))
+            cv.putText(frame,"ClassID: " + str(obj_id),(x1+3,y1+10),0,0.5,(0,255,0))
+                
     cv.imshow('frame', frame)
     if cv.waitKey(1) == ord('q'):
         break
